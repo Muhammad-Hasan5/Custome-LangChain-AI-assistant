@@ -1,4 +1,4 @@
-#from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -36,36 +36,50 @@ chain = prompt | llm | StrOutputParser()
 
 print("FinSight: Hey there! How can I help you?")
 
-history = [] # Chat history list
 
-# while True:
-#     user_input = input("You: ")
-#     if user_input == "exit":
-#         break
-#     response = chain.invoke({"input": user_input, "history": history})
-#     print(f"FinSight: {response}")
-#     history.append(HumanMessage(content = user_input))
-#     history.append(AIMessage(content = response))
-#
-#
-# print("FinSight: Bye! See you again.")
+def chat(user_input, history):
+    langchain_history = []
+    for item in history:
+        if item["role"] == "user":
+            langchain_history.append(HumanMessage(content = item["content"]))
+        elif item["role"] == "assistant":
+            langchain_history.append(AIMessage(content = item["content"]))
+
+    response = chain.invoke({"input": user_input, "history": langchain_history})
+
+    return "", history + [{"role":"user", "content": user_input},
+                          {"role":"assistant", "content": response}]
+
 
 page = gr.Blocks(
-    title = "Chat with Fin$sight",
+    title = "Chat with FinSight",
     theme = gr.themes.Soft(),
 )
 
+
+def clear_chat():
+    return "", []
+
+#GUI
 with page:
     gr.Markdown(
 
         """
-        # Chat with Fin$sight
+        # Chat with FinSight
         Welcome to the FinSight, you're finance adviser.
         """
     )
 
-    chatbot = gr.Chatbot()
-    msg = gr.Textbox()
-    button = gr.Button()
+    chatbot = gr.Chatbot(type = "messages",
+                         show_label = False,
+                         avatar_images = [None, 'finsight.jpg'])
+
+    msg = gr.Textbox(show_label = False,
+                     placeholder = "Ask FinSight...")
+
+    msg.submit(chat, [msg, chatbot], [msg, chatbot])
+
+    clear = gr.Button("Clear Chat", variant = "Secondary")
+    clear.click(clear_chat, outputs = [msg, chatbot])
 
 page.launch(share = True)
